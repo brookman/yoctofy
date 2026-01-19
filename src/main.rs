@@ -73,6 +73,7 @@ struct Package {
     version: String,
     source: Option<String>,
     manifest_path: String,
+    license: Option<String>,
 }
 
 impl Package {
@@ -240,6 +241,13 @@ fn main() -> Result<()> {
         &other_git,
         Some(&other_git_repos),
         Some(&other_git_crates),
+    )?;
+
+    // Collect and write runtime licenses
+    let runtime_licenses = collect_runtime_licenses(&runtime_ids, &pkgs_by_crate_id);
+    write_licenses_json(
+        &args.out_dir.join(format!("{}-licenses.json", args.package)),
+        &runtime_licenses,
     )?;
 
     Ok(())
@@ -735,4 +743,54 @@ fn write_cargo_rewrite_section(out: &mut String, crates: &[GitCrate]) {
         }
     }
     out.push_str("      \"${S}/Cargo.toml\"\n");
+}
+
+// ============================================================================
+// License Collection
+// ============================================================================
+
+fn collect_runtime_licenses(
+    ids: &BTreeSet<CrateId>,
+    pkgs_by_id: &HashMap<CrateId, &Package>,
+) -> std::collections::BTreeMap<String, String> {
+    let mut licenses = std::collections::BTreeMap::new();
+
+    for id in ids {
+        let Some(pkg) = pkgs_by_id.get(id) else {
+            continue;
+        };
+
+        let license = pkg.license.clone().unwrap_or_else(|| "UNKNOWN".to_string());
+        let key = if let Some(source) = &pkg.source {
+            if source.starts_with("git+") {
+                // Format: git+https://...#rev -> git+https://...@rev
+                if let Some((url_part, rev)) = source.rsplit_once('#') {
+                    let url = url_part.split('?').next().unwrap_or(url_part);
+                    format!("{}@{}", url, rev)
+                } else {
+                    source.clone()
+                }
+            } else if source.starts_with("registry+") {
+                format!("crate://crates.io/{}/{}", pkg.name, pkg.version)
+            } else {
+                // Skip unknown sources
+                continue;
+            }
+        } else {
+            // Path dependency (workspace member), skip
+            continue;
+        };
+
+        licenses.insert(key, license);
+    }
+
+    licenses
+}
+
+fn write_licenses_json(
+    path: &Path,
+    licenses: &std::collections::BTreeMap<String, String>,
+) -> Result<()> {
+    let json = serde_json::to_string_pretty(licenses).context("serialize licenses to JSON")?;
+    fs::write(path, json).with_context(|| format!("write {:?}", path))
 }
