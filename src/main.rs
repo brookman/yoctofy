@@ -22,6 +22,9 @@ struct Args {
     /// Root package name (e.g. vector)
     #[arg(long)]
     package: String,
+    /// Target triple
+    #[arg(long, default_value = "")]
+    target: String,
     /// Comma-separated feature list
     #[arg(long, default_value = "")]
     features: String,
@@ -263,6 +266,9 @@ fn cargo_metadata(args: &Args) -> Result<Metadata> {
 
     if let Some(p) = &args.manifest_path {
         cmd.arg("--manifest-path").arg(p);
+    }
+     if !args.target.trim().is_empty() {
+        cmd.arg("--filter-platform").arg(args.target.trim());
     }
     if args.no_default_features {
         cmd.arg("--no-default-features");
