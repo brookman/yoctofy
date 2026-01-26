@@ -63,6 +63,10 @@ SRCREV  = "44c8f1c3d64bdedb924041c946f639d09890fc51"
 
 S = "${WORKDIR}/git"
 
+# must incldue both for the build to work
+require ${BPN}-crates-runtime.inc
+require ${BPN}-crates-other.inc
+
 # must be the same as used to generate the .inc files
 CARGO_BUILD_FLAGS += " --no-default-features --features feature-a,feature-b"
 
