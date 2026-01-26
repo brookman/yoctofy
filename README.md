@@ -45,3 +45,37 @@ cargo run -r -- \
 This generates the same set of output files, but for a custom feature set and target
 triple. Restricting features and specifying the target will typically reduce the number
 of runtime dependencies.
+
+
+## How to structure you recipe
+
+```
+SUMMARY = "Whatever"
+DESCRIPTION = "A tool, whatever"
+HOMEPAGE = "https://whatever.dev"
+LICENSE = "MPL-2.0"
+LIC_FILES_CHKSUM = "file://LICENSE;md5=65d26fcc2f35ea6a181ac777e42db1ea"
+
+inherit cargo cargo-update-recipe-crates
+
+SRC_URI = "git://github.com/whatever/whatever.git;protocol=https;nobranch=1"
+SRCREV  = "44c8f1c3d64bdedb924041c946f639d09890fc51"
+
+S = "${WORKDIR}/git"
+
+# must be the same as used to generate the .inc files
+CARGO_BUILD_FLAGS += " --no-default-features --features feature-a,feature-b"
+
+# We can't use --frozen because we patch Cargo.toml, but --offline is fine
+CARGO_BUILD_FLAGS:remove = " --frozen" 
+CARGO_BUILD_FLAGS += " --offline"
+
+# SPDX fixup: filter to runtime crates and add license info
+require spdx-fixup.inc
+
+...
+```
+
+## Gotchas
+- The `spdx-fixup.inc` part is optional
+- The .inc files try to patch git imports which are messed up from cargo-yocto. It's not perfect and sometimes needs some manual tweaking.
